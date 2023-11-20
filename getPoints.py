@@ -2,8 +2,21 @@ import cv2
 import numpy as np
 import yaml
 
+def cm2px(coords):
+    aruco = 0.025
+    px = abs(coords[0][0] - coords[1][0])
+    
+    return aruco/px
+
+def convert(point, factou):
+    point_ref=(1001, 206)
+    X_ref = point[0] - point_ref[0]
+    Y_ref = point[1] - point_ref[1]
+    
+    return (X_ref*factou, Y_ref*factou)
+
 # Lee la imagen
-img = cv2.imread("yes2.png")
+img = cv2.imread("memi.jpeg")
 
 # Redimensionar la imagen (opcional)
 nuevas_dimensiones = (int(img.shape[1]/2), int(img.shape[0]/2))
@@ -33,6 +46,18 @@ if ids_aruco is not None:
     for marker_id, corner in zip(ids_aruco, corners_aruco):
         x, y = np.mean(corner[0], axis=0)
         coordinates_aruco.append((int(x), int(y)))
+
+        # Agrega las coordenadas del punto de abajo a la izquierda
+        x_bottom_left, y_bottom_left = corner[0][0]
+        coordinates_aruco.append((int(x_bottom_left), int(y_bottom_left)))
+
+        # Dibuja un círculo en la esquina inferior derecha (punto de arriba a la derecha)
+        cv2.circle(img, (int(x), int(y)), 5, (255, 0, 0), -1)
+
+        # Dibuja un círculo en la esquina inferior izquierda (punto de arriba a la izquierda)
+        cv2.circle(img, (int(x_bottom_left), int(y_bottom_left)), 5, (255, 0, 0), -1)
+
+
 
 # Detecta círculos en la imagen
 circles = cv2.HoughCircles(
@@ -76,8 +101,11 @@ for coord_aruco in coordinates_aruco:
 
 print("\nCoordenadas de Círculos:")
 for coord_circles in coordinates_circles:
-    print(coord_circles)
-
+    pixeles_centros = convert(coord_circles,cm2px(coordinates_aruco))
+    cv2.line(img,coord_circles, coordinates_aruco[1], (0, 0, 255), 2)
+    print(pixeles_centros)
+    
+print(cm2px(coordinates_aruco))
 # Mostrar la imagen con los marcadores ArUco y círculos detectados
 cv2.imshow("Marcadores ArUco y Circulos detectados", img)
 cv2.waitKey(0)
