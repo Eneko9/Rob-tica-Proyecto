@@ -2,6 +2,7 @@ from moveit_commander import MoveGroupCommander
 from moveit_commander import PlanningSceneInterface
 from moveit_commander import RobotCommander
 from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point
 from tf.transformations import quaternion_from_euler
 from control_msgs.msg import GripperCommandActionGoal
 import rospy
@@ -17,9 +18,15 @@ class ControlRobot:
 
         pose_suelo = PoseStamped()
         pose_suelo.header.frame_id = self.robot_commander.get_planning_frame()
-        pose_suelo.pose.position.z = -0.011
+        pose_suelo.pose.position.z = -0.022
         self.planning_scene.add_box("suelo",pose_suelo,(3,3,0.02))
         
+        pose_luz = PoseStamped()
+        pose_luz.header.frame_id = self.robot_commander.get_planning_frame()
+        pose_luz.pose.position.x = 0.64
+        pose_luz.pose.position.y = 0.05
+        pose_luz.pose.position.z = -0.21
+        self.planning_scene.add_box("luz",pose_luz,(0.742211,0.742211,0.742211))
 
         self.move_group.set_planning_time(10)
         self.move_group.set_num_planning_attempts(5)
@@ -38,8 +45,10 @@ class ControlRobot:
         self.mover_a_pose(lista_pose)
 
     def callback_puntos_interes(self, msg):
-        # Callback llamado cuando se recibe un punto de interés
-        self.mover_a_punto_interes(msg)
+         if not self.puntos_recibidos:
+            print("Punto de interés recibido: ({}, {})".format(msg.x, msg.y))
+            #self.mover_a_punto_interes(msg)
+            self.puntos_recibidos = True  # Marcar que se han recibido puntos
         
     def mover_a_pose(self, lista_pose: list) -> bool:
         orientacion_quaternion = quaternion_from_euler(lista_pose[3],
@@ -92,3 +101,64 @@ if __name__ == '__main__':
  
     # print(control_robot.move_group.get_current_joint_values())
     # pass
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# rospy.init_node("nodo_pruebas",anonymous=True)
+# move_group = MoveGroupCommander("robot")
+# print(move_group.get_end_effector_link())
+
+# class PruebasRobot:
+#     def __init__(self) -> None:
+#         rospy.init_node("nodo_pruebas",anonymous=True)
+#         self.move_group = MoveGroupCommander("robot")
+#         pose_caja = PoseStamped()
+#         pose_caja.header.frame_id = self.move_group.get_planning_frame()
+#         pose_caja.pose.position.x = 0.0
+#         pose_caja.pose.position.y = 0.0
+#         pose_caja.pose.position.z = -0.011
+
+#         escena = PlanningSceneInterface()
+#         escena.add_box("suelo",pose_caja,(2,2,0.02))
+
+#         self.publisher_pinza = rospy.Publisher("/rg2_action_server/goal",GripperCommandActionGoal,queue_size=10)
+        
+
+#     def control_pinza(self, width: float, fuerza: float) -> None:
+#         msg_pinza = GripperCommandActionGoal()
+#         msg_pinza.goal.command.position = width
+#         msg_pinza.goal.command.max_effort = fuerza
+
+#         self.publisher_pinza.publish(msg_pinza)
+
+# if __name__ == '__main__':
+#     from time import sleep
+#     test = PruebasRobot()
+#     sleep(2)
+#     test.control_pinza(100.0, 40.0)
+#     test.control_pinza(100.0, 40.0)
+#     rospy.spin()
