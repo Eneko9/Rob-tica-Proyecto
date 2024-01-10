@@ -21,10 +21,9 @@ def cm2px(coords):
     
     return aruco / px if px != 0 else 0
 
-def convert(point, factou):
-    point_ref = (1001, 206)
-    X_ref = point[0] - point_ref[0]
-    Y_ref = point[1] - point_ref[1]
+def convert(point, factou, coords):
+    X_ref = point[0] - coords[1][0]
+    Y_ref = point[1] - coords[1][1]
     
     return (X_ref * factou, Y_ref * factou)
 
@@ -63,20 +62,20 @@ def getPoints():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     corners_aruco, ids_aruco, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+
+    # this array will contain the center point and a corner point (tuples) of the detected aruco
     coordinates_aruco = []
 
-    if ids_aruco is not None:
-        cv2.aruco.drawDetectedMarkers(frame, corners_aruco, ids_aruco)
+    cv2.aruco.drawDetectedMarkers(frame, corners_aruco, ids_aruco)
 
-        for marker_id, corner in zip(ids_aruco, corners_aruco):
-            x, y = np.mean(corner[0], axis=0)
-            coordinates_aruco.append((int(x), int(y)))
+    x, y = np.mean(corners_aruco[0], axis=0)
+    coordinates_aruco.append((int(x), int(y)))
 
-            x_bottom_left, y_bottom_left = corner[0][0]
-            coordinates_aruco.append((int(x_bottom_left), int(y_bottom_left)))
+    x_bottom_left, y_bottom_left = corners_aruco[0][0]
+    coordinates_aruco.append((int(x_bottom_left), int(y_bottom_left)))
 
-            cv2.circle(frame, (int(x), int(y)), 5, (255, 0, 0), -1)
-            cv2.circle(frame, (int(x_bottom_left), int(y_bottom_left)), 5, (255, 0, 0), -1)
+    cv2.circle(frame, (int(x), int(y)), 5, (255, 0, 0), -1)
+    cv2.circle(frame, (int(x_bottom_left), int(y_bottom_left)), 5, (255, 0, 0), -1)
 
     circles = cv2.HoughCircles(
         gray,
@@ -103,7 +102,7 @@ def getPoints():
 
     for coord_circles in coordinates_circles:
         if coordinates_aruco:  # Check if coordinates_aruco is not empty
-            pixeles_centros.append(convert(coord_circles, cm2px(coordinates_aruco)))
+            pixeles_centros.append(convert(coord_circles, cm2px(coordinates_aruco), coordinates_aruco))
             #cv2.line(frame, coord_circles, coordinates_aruco[1], (0, 0, 255), 2)
             
     with open('circles_norm.json', 'w') as json_file_circles:
