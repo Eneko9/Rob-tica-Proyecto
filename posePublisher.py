@@ -4,6 +4,7 @@ from copy import deepcopy
 import json
 import cv2
 import numpy as np
+import math
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -16,14 +17,17 @@ class NpEncoder(json.JSONEncoder):
         return super(NpEncoder, self).default(obj)
     
 def cm2px(coords):
-    aruco = 0.025
-    px = abs(coords[0][0] - coords[1][0])
+    aruco = 0.05
+    x = abs(coords[0][0] - coords[1][0])
+    y = abs(coords[0][1] - coords[1][1])
     
-    return aruco / px if px != 0 else 0
+    dist = math.sqrt(x**2+y**2)
+    
+    return aruco / dist if dist != 0 else 0
 
-def convert(point, factou, coords):
-    X_ref = point[0] - coords[1][0]
-    Y_ref = point[1] - coords[1][1]
+def convert(point, factou, coordinates_aruco):
+    X_ref = point[0] - coordinates_aruco[0][0]
+    Y_ref = point[1] - coordinates_aruco[0][1]
     
     return (X_ref * factou, Y_ref * factou)
 
@@ -53,7 +57,7 @@ def publicar_puntos_desde_json(ruta_json):
     rate.sleep()
 
 def getPoints():
-    cap = cv2.VideoCapture(2)
+    cap = cv2.VideoCapture(0)
     aruco_dict = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
     parameters = cv2.aruco.DetectorParameters_create()
 
@@ -62,20 +66,21 @@ def getPoints():
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     corners_aruco, ids_aruco, _ = cv2.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
-
-    # this array will contain the center point and a corner point (tuples) of the detected aruco
     coordinates_aruco = []
 
-    cv2.aruco.drawDetectedMarkers(frame, corners_aruco, ids_aruco)
+    if ids_aruco is not None:
+        cv2.aruco.drawDetectedMarkers(frame, corners_aruco, ids_aruco)
 
-    x, y = np.mean(corners_aruco[0], axis=0)
-    coordinates_aruco.append((int(x), int(y)))
+        for marker_id, corner in zip(ids_aruco, corners_aruco):
+            # x, y = np.mean(corner[0], axis=0)
+            x_bottom_right, y_bottom_right = corner[0][1]
+            coordinates_aruco.append((int(x_bottom_right), int(y_bottom_right)))
+            
+            x_bottom_left, y_bottom_left = corner[0][0]
+            coordinates_aruco.append((int(x_bottom_left), int(y_bottom_left)))
 
-    x_bottom_left, y_bottom_left = corners_aruco[0][0]
-    coordinates_aruco.append((int(x_bottom_left), int(y_bottom_left)))
-
-    cv2.circle(frame, (int(x), int(y)), 5, (255, 0, 0), -1)
-    cv2.circle(frame, (int(x_bottom_left), int(y_bottom_left)), 5, (255, 0, 0), -1)
+            # cv2.circle(frame, (int(x), int(y)), 5, (255, 0, 0), -1)
+            # cv2.circle(frame, (int(x_bottom_left), int(y_bottom_left)), 5, (255, 0, 0), -1)
 
     circles = cv2.HoughCircles(
         gray,
@@ -108,7 +113,7 @@ def getPoints():
     with open('circles_norm.json', 'w') as json_file_circles:
         json.dump(pixeles_centros, json_file_circles, cls=NpEncoder)
             
-    cv2.imwrite("peru.jpg",frame)
+    cv2.imwrite("bolivia.jpg",frame)
 if __name__ == '__main__':
     # Especifica la ruta de tu archivo JSON
     ruta_circles = 'circles_norm.json'
