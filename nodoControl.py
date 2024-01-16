@@ -3,7 +3,7 @@ from moveit_commander import PlanningSceneInterface
 from moveit_commander import RobotCommander
 from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Point, PoseArray
-from std_msgs.msg import String
+from std_msgs.msg import Bool, Int64
 from tf.transformations import quaternion_from_euler
 import rospy
 from copy import deepcopy
@@ -17,8 +17,10 @@ class ControlRobot:
         self.robot_commander = RobotCommander()      
 
         self.array_poses = PoseArray()
+        self.gesto = int
         self.msg = None
         self.arucoReference = None
+        self.stop = False
         
         pose_suelo = PoseStamped()
         pose_suelo.header.frame_id = self.robot_commander.get_planning_frame()
@@ -59,6 +61,8 @@ class ControlRobot:
         self.move_group.set_num_planning_attempts(2)
 
         rospy.Subscriber('/puntos_interes', PoseArray, self.__callback)
+        rospy.Subscriber('/gestos_interes', Int64, self.__callback_gestos)
+        rospy.Subscriber('/parada_aforo', Bool, self.__callback_aforo)
 
     def mover_articulaciones(self, valores_articulaciones: list) -> bool:
         return self.move_group.go(valores_articulaciones)
@@ -70,6 +74,12 @@ class ControlRobot:
         
     def __callback(self, msg: PoseArray) -> None:
         self.array_poses = msg
+        
+    def __callback_gestos(self, msg: Int64) -> None:
+        self.gesto = msg.data
+    
+    def __callback_aforo(self, msg: Bool) -> None:
+        self.stop = msg
 
     def mover_a_pose(self, pose_meta: PoseStamped) -> bool:
 
@@ -83,9 +93,12 @@ class ControlRobot:
 
         return self.move_group.execute(trajectory)
     
-    def mover_a_pose2(self, lista_pose: list) -> bool:
-      
+    def stop_robot(self):
+        while self.gesto != 1 :
+            print("Robot parado! Realiza el gesto 1 para reanudar")
+        self.stop = False
         
+    def mover_a_pose2(self, lista_pose: list) -> bool:   
         pose_meta = PoseStamped()
         pose_meta.header.frame_id = self.robot_commander.get_planning_frame()
         pose_meta.pose.position.x = lista_pose[0]
@@ -108,34 +121,6 @@ class ControlRobot:
 
         return self.move_group.execute(trajectory)
     
-    # def empezar_rutina(self) -> None:
-    #     poses = deepcopy(self.array_poses)
-    #     print(poses)
-    #     posesStamped = []
-    #     #print(poses.poses)
-        
-    #     poses = [[-0.10625,-0.085],[-0.13625,-0.12375],[-0.14125000000000001,-0.051250000000000004]]
-        
-    #     for i in range(len(poses.poses)):
-    #         p = PoseStamped()
-
-    #         p.pose.position.x = poses.poses[i].position.x + self.arucoReference.pose.position.x
-    #         p.pose.position.y = poses.poses[i].position.y + self.arucoReference.pose.position.y
-    #         p.pose.position.z = poses.poses[i].position.z + self.arucoReference.pose.position.z
-    #         p.pose.orientation.w = self.arucoReference.pose.orientation.w
-    #         p.pose.orientation.x = self.arucoReference.pose.orientation.x
-    #         p.pose.orientation.y = self.arucoReference.pose.orientation.y
-    #         p.pose.orientation.z = self.arucoReference.pose.orientation.z
-            
-            
-    #         posesStamped.append(deepcopy(p))
-    #         print(posesStamped)
-    #     while not rospy.is_shutdown():
-    #         poses = deepcopy(self.array_poses)
-    #         for poseStamped in posesStamped:
-    #             self.mover_a_pose(poseStamped)
-    #         # movimientos robot   
-
     def mover_a_home(self) -> bool:
         self.move_group.set_named_target("home")
         return self.move_group.go()
@@ -144,9 +129,6 @@ class ControlRobot:
         poses: PoseArray = deepcopy(self.array_poses)
         print(poses)
         posesStamped = []
-        #print(poses.poses)
-        
-        #poses = [[0.0985,0],[0.0661,0]]
         
         for i, pose in enumerate(poses.poses):
             p = PoseStamped()
@@ -160,12 +142,20 @@ class ControlRobot:
             posesStamped.append(deepcopy(p))
             print(posesStamped)
         while not rospy.is_shutdown():
+            print(self.gesto)
             poses = deepcopy(self.array_poses)
+            
+            if self.stop or self.gesto == 0: 
+                self.stop_robot()
+            
             for poseStamped in posesStamped:
+                if self.stop or self.gesto == 0: 
+                    self.stop_robot()
                 self.mover_a_pose(poseStamped)
-            # movimientos robot   
-        
-
+                poseZ = deepcopy(poseStamped)
+                poseZ.pose.position.z = poseZ.pose.position.z - 0.02
+                self.mover_a_pose(poseZ)
+                self.mover_a_pose(poseStamped)
     
 if __name__ == '__main__':
     
@@ -186,23 +176,6 @@ if __name__ == '__main__':
     
     control_robot.mover_a_home()
     
-    # input("Mueve el robot a la posicion inicial y dale a ENTER...")
-    
-    # punto_objetivo = control_robot.move_group.get_current_pose()
-    # print(punto_objetivo)
-    
     input("Mueve el robot a la posicion inicial y dale a ENTER...")
     
     control_robot.empezar_rutina()
-    # angulos = control_robot.move_group.get_current_joint_values()
-    # # with open("poses","w+") as f:
-    # #     yaml.dump(pose,f)
-    # with open("poses","r+") as f:
-    #     mi_pose = yaml.load(f, yaml.Loader)
-    # #control_robot.mover_a_pose([1.4394619464874268, -0.4464119237712403, -0.4029938280582428, -0.7764907044223328, -1.5569680372821253, -0.09305268922914678])
-    # #control_robot.mover_a_pose([0, 0.4, 0, 0, 0, 0])
-    # control_robot.move_group.set_pose_target(mi_pose)
-    # control_robot.move_group.go()
- 
-    # print(control_robot.move_group.get_current_joint_values())
-    # pass
